@@ -537,3 +537,14 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for the project layout and how to add a c
 
 This is an independent open-source project. It is not affiliated with, endorsed by or supported by Pathao, Steadfast
 Courier or RedX. Their names are used only to identify the APIs this SDK talks to.
+
+## Install from GitHub Packages
+
+Releases are published as `@saizul/courier-bd-sdk` on GitHub Packages:
+
+```bash
+echo "@saizul:registry=https://npm.pkg.github.com" >> .npmrc
+npm install @saizul/courier-bd-sdk
+```
+
+GitHub Packages needs a personal access token with `read:packages` in your npm config to install.
