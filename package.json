@@ -1,0 +1,34 @@
+{
+  "name": "courier-bd-sdk",
+  "version": "0.1.0",
+  "description": "Unified TypeScript SDK for Bangladesh courier APIs: Pathao, Steadfast and RedX. Zero runtime dependencies.",
+  "keywords": ["bangladesh", "courier", "pathao", "steadfast", "redx", "delivery", "logistics", "ecommerce", "cod", "sdk"],
+  "author": "Saizul Amin (https://github.com/saizul)",
+  "license": "MIT",
+  "homepage": "https://github.com/saizul/courier-bd-sdk#readme",
+  "repository": { "type": "git", "url": "git+https://github.com/saizul/courier-bd-sdk.git" },
+  "bugs": { "url": "https://github.com/saizul/courier-bd-sdk/issues" },
+  "type": "module",
+  "main": "./dist/src/index.js",
+  "types": "./dist/src/index.d.ts",
+  "exports": {
+    ".": { "types": "./dist/src/index.d.ts", "import": "./dist/src/index.js" },
+    "./package.json": "./package.json"
+  },
+  "bin": { "courier-bd": "dist/src/bin.js" },
+  "files": ["dist/src", "README.md", "CHANGELOG.md", "LICENSE"],
+  "engines": { "node": ">=22" },
+  "sideEffects": false,
+  "scripts": {
+    "clean": "node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true})\"",
+    "build": "npm run clean && tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "npm run build && node --test \"dist/test/*.test.js\"",
+    "test:only": "node --test \"dist/test/*.test.js\"",
+    "prepublishOnly": "npm test"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "typescript": "^5.7.0"
+  }
+}
