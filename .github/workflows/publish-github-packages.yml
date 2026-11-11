@@ -1,0 +1,33 @@
+name: Publish to GitHub Packages
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: https://npm.pkg.github.com
+          scope: '@saizul'
+      - run: npm ci
+      - run: npm run build
+      - run: npm test
+      # GitHub Packages requires a scoped name that matches the repository owner.
+      - name: Scope the package for GitHub Packages
+        run: |
+          npm pkg set name="@saizul/courier-bd-sdk"
+          npm pkg set publishConfig.registry="https://npm.pkg.github.com"
+          npm pkg set repository.url="git+https://github.com/saizul/courier-bd-sdk.git"
+      - run: npm publish --ignore-scripts
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
