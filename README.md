@@ -27,6 +27,9 @@ your application does not care which courier carries a parcel.
   `TimeoutError` and more, all with credentials redacted from messages and details.
 - **Input validation** - Bangladesh mobile numbers in any common format (`01XXXXXXXXX`, `+880`, Bangla digits), COD
   amount, weight and address length, checked before a request is sent.
+- **Idempotent order creation** - `withIdempotency(client)` books each merchant order id at most once across retries,
+  restarts and workers, and recovers orders after ambiguous timeouts (see
+  [Idempotent order creation](#idempotent-order-creation)).
 - **Webhooks** - verify and parse deliveries from all three couriers into one event shape.
 - **Fallback router** - pick a courier by coverage rules, priority or cheapest quote, with failover and a circuit
   breaker.
@@ -325,6 +328,7 @@ All errors extend `CourierError` and carry `code`, `provider`, `status` (HTTP st
 | `ConfigError`                | `CONFIG`      | Missing or invalid configuration                                |
 | `WebhookVerificationError`   | `WEBHOOK`     | A webhook failed authentication                                 |
 | `NoCourierAvailableError`    | `NO_COURIER`  | The router ran out of candidates; see `attempts`                |
+| `IdempotencyError`           | `IDEMPOTENCY` | The idempotency guard refused a send that could duplicate a parcel |
 
 Credentials you configure are scrubbed from error messages, error details and log entries, including when a courier
 echoes them back in a response.
@@ -340,6 +344,53 @@ may have processed the first attempt and a retry would book a second parcel. The
 
 After a `TimeoutError` or `NetworkError` on `createOrder`, the order may or may not exist. Where the courier supports
 it (Steadfast), look it up by your invoice before creating it again.
+`withIdempotency` does that bookkeeping for you; see the next section.
+
+### Idempotent order creation
+
+Wrap any client (or each router candidate) to make `createOrder` and `bulkCreate` safe to call again with the same
+`merchantOrderId`:
+
+```ts
+import { IdempotencyError, withIdempotency } from 'courier-bd-sdk';
+
+const courier = withIdempotency(steadfast, { store: myStore }); // default: in-memory store
+
+try {
+  const order = await courier.createOrder(input); // a second call with the same invoice returns the stored order
+} catch (error) {
+  if (error instanceof IdempotencyError && error.reason === 'outcome_unknown') {
+    // Check the merchant panel, then courier.markCreated(confirmedOrder) or courier.forget(input.merchantOrderId).
+  }
+  throw error;
+}
+```
+
+What the guard does for each `merchantOrderId` (keyed per courier by default):
+
+| Situation                                                     | Result                                                                                    |
+| ------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| Order already confirmed                                       | The stored `Order` is returned; no request is sent                                        |
+| Same key requested concurrently in one process                | One request; every caller gets the same result                                            |
+| Another worker is still sending it (`pending`, < 2 min old)   | `IdempotencyError` with `reason: 'in_progress'` (`retryable: true`)                      |
+| Earlier attempt hit a timeout, network error, 5xx or bad body | The order is looked up first; recovered if it exists, created if the lookup says `404`   |
+| ...and the courier cannot look it up (Pathao, RedX)           | `IdempotencyError` with `reason: 'outcome_unknown'` until you `markCreated` or `forget`  |
+| Earlier attempt was rejected (validation, auth, `429`, `4xx`) | The key is released and the order can be sent again                                      |
+| Key reused with a different COD, phone, address or weight     | `IdempotencyError` with `reason: 'conflict'`                                              |
+
+`bulkCreate` applies the same rules per item: confirmed items are returned without being resent, blocked items fail
+with error code `IDEMPOTENCY`, and only the rest go to the courier, with result indices mapped back to your input.
+Items a courier accepts asynchronously (Pathao bulk) are stored as `submitted` and never resent.
+
+Options: `store` (any object with `get`, `set(key, record, ttlMs)` and `delete`, sync or async, for example over
+Redis or a database table shared by your workers), `ttlMs` (default 7 days), `pendingTimeoutMs` (default 2 minutes;
+keep it above your timeout times the retry count), `keyFor(merchantOrderId, provider)`, `fingerprint` (a function, or
+`false` to skip the conflict check), `lookup(input, client)` (resolve an `Order`, `null` for "does not exist", or
+throw; `false` disables the default tracking lookup) and `onEvent` (`replay`, `recovered`, `stored`, `ambiguous`,
+`released`, `blocked`). The bundled `MemoryIdempotencyStore` lives in one process only.
+
+The guard prevents duplicates it can see. Records are only as durable and as shared as the store you give it, and a
+store that is not atomic across workers (plain `get` then `set`) leaves a small race window between them.
 
 ## Webhooks
 

@@ -8,7 +8,8 @@ export type CourierErrorCode =
   | 'UNSUPPORTED'
   | 'CONFIG'
   | 'WEBHOOK'
-  | 'NO_COURIER';
+  | 'NO_COURIER'
+  | 'IDEMPOTENCY';
 
 export interface CourierErrorOptions {
   /** Provider the error originated from. */
@@ -191,6 +192,40 @@ function summarizeAttempt(attempt: RouteAttempt): Record<string, unknown> {
     reason: attempt.reason,
     error: error instanceof Error ? error.message : error === undefined ? undefined : String(error),
   };
+}
+
+export type IdempotencyErrorReason = 'in_progress' | 'outcome_unknown' | 'conflict';
+
+/**
+ * The idempotency guard refused to send an order because doing so could book
+ * a duplicate parcel. `reason` says why:
+ *
+ * - `in_progress`: another attempt for the same key has not finished yet.
+ * - `outcome_unknown`: an earlier attempt failed ambiguously (timeout, network
+ *   error, 5xx) and the order could not be looked up.
+ * - `conflict`: the key was already used for an order with different contents.
+ */
+export class IdempotencyError extends CourierError {
+  readonly reason: IdempotencyErrorReason;
+  /** The idempotency key the guard refused to reuse. */
+  readonly key: string;
+
+  constructor(
+    message: string,
+    options: CourierErrorOptions & { reason: IdempotencyErrorReason; key: string },
+  ) {
+    super('IDEMPOTENCY', message, options);
+    this.reason = options.reason;
+    this.key = options.key;
+  }
+
+  override get retryable(): boolean {
+    return this.reason === 'in_progress';
+  }
+
+  override toJSON(): Record<string, unknown> {
+    return { ...super.toJSON(), reason: this.reason, key: this.key };
+  }
 }
 
 /** Type guard for errors raised by this SDK. */

@@ -6,6 +6,17 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- `withIdempotency(client, options)` / `IdempotentCourier`: books each merchant order id at most once. Confirmed
+  orders are replayed from a pluggable `IdempotencyStore` (in-memory `MemoryIdempotencyStore` included), concurrent
+  calls share one request, ambiguous failures (timeout, network, 5xx, unparseable response) are resolved by looking
+  the order up by merchant order id where the courier supports it, definite rejections release the key, and reusing
+  a key for an order with different contents is refused. `bulkCreate` skips items that already exist and maps result
+  indices back to the input.
+- `IdempotencyError` (code `IDEMPOTENCY`) with `reason` `in_progress`, `outcome_unknown` or `conflict`.
+- `orderFingerprint` and `isAmbiguousCreateFailure` helpers.
+
 ## [0.1.0] - 2026-11-11
 
 Initial release.

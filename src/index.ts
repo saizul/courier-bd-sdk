@@ -30,11 +30,13 @@ export {
   ConfigError,
   WebhookVerificationError,
   NoCourierAvailableError,
+  IdempotencyError,
   isCourierError,
   type CourierErrorCode,
   type CourierErrorOptions,
   type ValidationIssue,
   type RouteAttempt,
+  type IdempotencyErrorReason,
 } from './errors.js';
 
 export {
@@ -131,5 +133,20 @@ export {
   type RoutePlanEntry,
   type RoutedOrder,
 } from './router.js';
+
+export {
+  IdempotentCourier,
+  MemoryIdempotencyStore,
+  withIdempotency,
+  orderFingerprint,
+  isAmbiguousCreateFailure,
+  DEFAULT_IDEMPOTENCY_TTL_MS,
+  DEFAULT_PENDING_TIMEOUT_MS,
+  type IdempotencyOptions,
+  type IdempotencyStore,
+  type IdempotencyRecord,
+  type IdempotencyEvent,
+  type OrderLookup,
+} from './idempotency.js';
 
 export { toIsoTimestamp } from './utils.js';
