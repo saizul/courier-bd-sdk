@@ -30,6 +30,8 @@ your application does not care which courier carries a parcel.
 - **Idempotent order creation** - `withIdempotency(client)` books each merchant order id at most once across retries,
   restarts and workers, and recovers orders after ambiguous timeouts (see
   [Idempotent order creation](#idempotent-order-creation)).
+- **Batch tracking** - `trackMany` polls many parcels with bounded concurrency, skips finished ones and reports
+  status changes since the last run (see [Batch tracking](#batch-tracking)).
 - **Webhooks** - verify and parse deliveries from all three couriers into one event shape.
 - **Fallback router** - pick a courier by coverage rules, priority or cheapest quote, with failover and a circuit
   breaker.
@@ -391,6 +393,34 @@ throw; `false` disables the default tracking lookup) and `onEvent` (`replay`, `r
 
 The guard prevents duplicates it can see. Records are only as durable and as shared as the store you give it, and a
 store that is not atomic across workers (plain `get` then `set`) leaves a small race window between them.
+
+## Batch tracking
+
+`trackMany(client, queries, options)` re-tracks many parcels with bounded concurrency and tells you which ones moved.
+It never rejects because one lookup failed: every parcel gets its own result.
+
+```ts
+import { trackMany } from 'courier-bd-sdk';
+
+// Last known statuses, keyed by consignment id (load these from your database).
+const previous = { '1424107': 'in_transit', '1424108': 'delivered' } as const;
+
+const { changed, failed, skipped, statuses } = await trackMany(courier, ['1424107', '1424108', '1424109'], {
+  concurrency: 4, // default
+  previous,
+});
+
+for (const item of changed) console.log(item.key, item.previousStatus, '->', item.tracking.status);
+for (const item of failed) console.warn(item.key, item.error);
+// skipped: '1424108' (already terminal, no request sent)
+saveStatuses(statuses); // pass back as `previous` on the next run
+```
+
+- Parcels whose previous status is terminal (`delivered`, `partial_delivered`, `returned`, `cancelled`) are skipped
+  without a request.
+- Keys come from `trackQueryKey(query)`: the consignment id for strings and `{ consignmentId }`, and
+  `merchant:<id>` / `code:<code>` for the other query forms.
+- `signal` stops sending new requests; `onResult` is called as each parcel settles.
 
 ## Webhooks
 

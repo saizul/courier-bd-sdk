@@ -27,6 +27,7 @@ src/
   validation.ts       phone, COD, weight and address validation
   base.ts             shared adapter plumbing
   ratecard.ts         static rate-card charge estimation
+  batch.ts            trackMany batch tracking
   webhooks.ts         webhook verification and parsing
   router.ts           fallback router
   factory.ts          createCourier / environment configuration

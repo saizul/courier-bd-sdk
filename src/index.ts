@@ -150,3 +150,12 @@ export {
 } from './idempotency.js';
 
 export { toIsoTimestamp } from './utils.js';
+
+export {
+  trackMany,
+  trackQueryKey,
+  DEFAULT_TRACK_CONCURRENCY,
+  type TrackManyOptions,
+  type TrackManyResult,
+  type TrackResult,
+} from './batch.js';
