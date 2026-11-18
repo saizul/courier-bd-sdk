@@ -8,6 +8,11 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- `trackMany(client, queries, options)`: tracks many parcels with bounded concurrency (default 4), skips parcels
+  whose previous status is terminal, collects per-parcel failures instead of rejecting, supports `AbortSignal` and an
+  `onResult` callback, and returns the parcels that changed status plus a `statuses` map for the next run.
+- `trackQueryKey(query)` and `DEFAULT_TRACK_CONCURRENCY`.
+- Contributor community files: `CODE_OF_CONDUCT.md`, issue templates and a pull request template.
 - `withIdempotency(client, options)` / `IdempotentCourier`: books each merchant order id at most once. Confirmed
   orders are replayed from a pluggable `IdempotencyStore` (in-memory `MemoryIdempotencyStore` included), concurrent
   calls share one request, ambiguous failures (timeout, network, 5xx, unparseable response) are resolved by looking
